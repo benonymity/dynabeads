@@ -153,12 +153,16 @@ def save_to_text(video_name, centers):
 
     df.insert(0, "Frames", range(1, len(df) + 1))
 
-    # Save the raw data as both txt and csv
-    df.to_csv(f"output/{video_name}_tracking.txt", index=False)
-    df.to_csv(f"output/{video_name}_tracking.csv", index=False)
+    df_string = df.to_string(index=False, justify="left")
+
+    # Save the DataFrame string to a text file.
+    with open(f"output/{video_name}.txt", "w") as f:
+        f.write(df_string)
 
 
 def process_video(video_file, args, progress_counter):
+    if args.text_only or args.plot_only:
+        args.debug = False
 
     video_path, centers, video_dims = process(video_file, args.debug)
 
@@ -169,11 +173,13 @@ def process_video(video_file, args, progress_counter):
     video_name = os.path.splitext(os.path.basename(video_path))[0]
     center_of_rotation = calculate_center(centers)
 
-    # Generate the plot
-    plot(video_name, centers, args.absolute, video_dims)
+    if not args.text_only:
+        # Generate the plot
+        plot(video_name, centers, args.absolute, video_dims)
 
-    # Save the results to a text file
-    save_to_text(video_name, centers)
+    if not args.plot_only:
+        # Save the results to a text file
+        save_to_text(video_name, centers)
 
     # Increment the progress bar
     progress_counter.value += 1
@@ -233,6 +239,18 @@ def main():
         "--debug",
         action="store_true",
         help="Enable debug mode to output video with overlays.",
+    )
+    parser.add_argument(
+        "-t",
+        "--text-only",
+        action="store_true",
+        help="Export only text files for use in MatLab",
+    )
+    parser.add_argument(
+        "-p",
+        "--plot-only",
+        action="store_true",
+        help="Export only position plots for visualization purposes",
     )
     parser.add_argument(
         "folder_path", type=str, help="Path to the folder containing video files."
