@@ -184,12 +184,11 @@ def process_folder(args, progress, button=None):
         for f in os.listdir(args.input)
         if f.endswith(".avi")
     ]
-    # if not progress:
-    #     from tqdm import tqdm
-    #     progress = tqdm(
-    #         total=len(video_files), desc="Overall Progress", unit="video"
-    #     )
-    # else:
+    if not progress:
+        from tqdm import tqdm
+        progress = tqdm(
+            total=len(video_files), desc="Overall Progress", unit="video"
+        )
     progress.reset(total=len(video_files))
     try:
         progress._tk_window.deiconify()
@@ -215,7 +214,10 @@ def process_folder(args, progress, button=None):
         # Finish the progress bar
         progress.n = progress.total
         progress.refresh()
-        progress._tk_window.withdraw()
+        try:
+            progress._tk_window.withdraw()
+        except:
+            pass
 
 
 if __name__ == "__main__":
