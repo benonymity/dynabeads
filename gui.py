@@ -1,4 +1,5 @@
 import os
+import sys
 import process
 import argparse
 import warnings
@@ -8,6 +9,8 @@ from tqdm.tk import tqdm
 from tkinter import filedialog, ttk
 from tqdm import TqdmExperimentalWarning
 
+if getattr(sys, "frozen", False):
+    import pyi_splash
 
 def select_folder(folder_path_var):
     folder_selected = filedialog.askdirectory(initialdir=".", title="Select Folder")
@@ -127,6 +130,9 @@ def create_gui():
     root.geometry("%dx%d+%d+%d" % (size + (x, y)))
 
     root.deiconify()
+
+    if getattr(sys, "frozen", False):
+        pyi_splash.close()
 
     root.mainloop()
 

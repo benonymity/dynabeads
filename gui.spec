@@ -21,7 +21,7 @@ if os.name == "nt":
         'splash.png',
         binaries=a.binaries,
         datas=a.datas,
-        text_pos=None,
+        text_pos=(10, 10),
         text_size=12,
         minify_script=True,
         always_on_top=True,
