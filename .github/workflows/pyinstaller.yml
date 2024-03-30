@@ -2,28 +2,16 @@
 name: Generate Executable
 
 on:
+  workflow_dispatch:
+    branches: [ main ]
+  
   push:
     branches: [ main ]
-
-# jobs:
-#   build:
-#     runs-on: ubuntu-latest
-
-#     steps:
-#     - uses: actions/checkout@v2
-
-#     - name: Package Application
-#       uses: JackMcKew/pyinstaller-action-windows@main
-#       with:
-#         path: .
-
-#     - uses: actions/upload-artifact@v2
-#       with:
-#         name: main
-#         path: "dist/*"
+    paths: [src/*, api/*]
 
 jobs:
   build:
+    if: !contains(github.event.head_commit.message, 'skip ci')
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -38,4 +26,3 @@ jobs:
           spec: 'src/gui.spec'
           requirements: 'src/requirements.txt'
           upload_exe_with_name: 'Bead Tracker'
-          # options: --onefile, --name "Bead Tracker", --windowed, 

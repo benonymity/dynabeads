@@ -39,7 +39,7 @@ def process(video_path, args):
     frame_width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    if args.debug:
+    if args.video:
         # Define the codec and create VideoWriter object to visualize tracking
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         if not os.path.exists(args.output):
@@ -60,7 +60,7 @@ def process(video_path, args):
             center = detect_center(frame)
             if center is not None:
                 centers.append(center)
-                if args.debug:
+                if args.video:
                     # Draw a cross on the detected center of the dot.
                     # However this isn't perfect as this function can't go subpixel,
                     # unlike the bead itself. So the actual detected center will
@@ -74,14 +74,14 @@ def process(video_path, args):
                         thickness=1,
                     )
                     out.write(frame)
-            elif args.debug:
+            elif args.video:
                 out.write(frame)
         except Exception as e:
             print("error!")
             cv2.imwrite(f"error_frame_{frame_index}.png", frame)
 
     video.release()
-    if args.debug:
+    if args.video:
         out.release()
 
     return video_path, centers, (frame_width, frame_height)
@@ -158,9 +158,6 @@ def save_to_text(video_name, centers, args):
 
 
 def process_video(video_file, args):
-    if args.text_only or args.plot_only:
-        args.debug = False
-
     video_path, centers, video_dims = process(video_file, args)
 
     if not centers:
@@ -170,11 +167,11 @@ def process_video(video_file, args):
     video_name = os.path.splitext(os.path.basename(video_path))[0]
     center_of_rotation = calculate_center(centers)
 
-    if not args.text_only:
+    if args.plot:
         # Generate the plot
         plot(video_name, centers, args, video_dims)
 
-    if not args.plot_only:
+    if args.text:
         # Save the results to a text file
         save_to_text(video_name, centers, args)
 
@@ -234,19 +231,19 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-d",
-        "--debug",
+        "--video",
         action="store_true",
         help="Enable debug mode to output video with overlays.",
     )
     parser.add_argument(
         "-t",
-        "--text-only",
+        "--text",
         action="store_true",
         help="Export only text files for use in MatLab",
     )
     parser.add_argument(
         "-p",
-        "--plot-only",
+        "--plot",
         action="store_true",
         help="Export only position plots for visualization purposes",
     )

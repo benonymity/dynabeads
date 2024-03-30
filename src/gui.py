@@ -12,6 +12,7 @@ from tqdm import TqdmExperimentalWarning
 if getattr(sys, "frozen", False):
     import pyi_splash
 
+
 def select_folder(folder_path_var):
     folder_selected = filedialog.askdirectory(initialdir=".", title="Select Folder")
     if folder_selected:
@@ -20,12 +21,12 @@ def select_folder(folder_path_var):
 
 def run(input, output, absolute, plot, text, debug, button, progress):
     args = dict(
-        absolute=absolute.get(),
         input=input.get(),
         output=output.get(),
-        debug=debug.get(),
-        plot_only=plot.get(),
-        text_only=text.get(),
+        video=debug.get(),
+        plot=plot.get(),
+        absolute=absolute.get(),
+        text=text.get(),
     )
     args = argparse.Namespace(**args)
     button["state"] = "disabled"

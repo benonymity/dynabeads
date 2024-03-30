@@ -57,7 +57,7 @@ else:
         a.binaries,
         a.datas,
         [],
-        name='gui',
+        name='Bead Tracker',
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,
@@ -72,6 +72,10 @@ else:
         entitlements_file=None,
         icon=['icon.icns'],
     )
+
+    os.system("chmod +x dist/Bead\ Tracker")
+
+
 app = BUNDLE(
     exe,
     name='Bead Tracker.app',
