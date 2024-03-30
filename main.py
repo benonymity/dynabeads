@@ -1,12 +1,10 @@
 import os
 import cv2
-import time
 import argparse
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from multiprocessing import Manager
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 
@@ -160,7 +158,7 @@ def save_to_text(video_name, centers):
         f.write(df_string)
 
 
-def process_video(video_file, args, progress_counter):
+def process_video(video_file, args):
     if args.text_only or args.plot_only:
         args.debug = False
 
@@ -181,9 +179,6 @@ def process_video(video_file, args, progress_counter):
         # Save the results to a text file
         save_to_text(video_name, centers)
 
-    # Increment the progress bar
-    progress_counter.value += 1
-
     return video_path, centers, center_of_rotation
 
 
@@ -193,34 +188,29 @@ def process_folder(args):
     ]
 
     # Use a Manager to create a shared progress counter that can handle concurrency
-    with Manager() as manager:
-        progress_counter = manager.Value("i", 0)  # 'i' is the typecode for integers
-        progress = tqdm(total=len(video_files), desc="Overall Progress", unit="video")
+    progress = tqdm(total=len(video_files), desc="Overall Progress", unit="video")
 
-        with ProcessPoolExecutor() as executor:
-            # Map futures to video file names, passing the progress counter
-            future_to_video = {
-                executor.submit(
-                    process_video, video_file, args, progress_counter
-                ): video_file
-                for video_file in video_files
-            }
+    with ProcessPoolExecutor() as executor:
+        # Map futures to video file names, passing the progress counter
+        future_to_video = {
+            executor.submit(process_video, video_file, args): video_file
+            for video_file in video_files
+        }
 
-            for future in as_completed(future_to_video):
-                # Update the progress bar manually
-                progress.n = progress_counter.value
-                progress.refresh()
+        for future in as_completed(future_to_video):
+            # Update the progress bar manually
+            progress.update(1)
 
-                try:
-                    result = future.result()
-                except Exception as exc:
-                    video_name = future_to_video[future]
-                    print(f"{video_name} generated an exception: {exc}")
+            try:
+                result = future.result()
+            except Exception as exc:
+                video_name = future_to_video[future]
+                print(f"{video_name} generated an exception: {exc}")
 
-        # Finish the progress bar
-        progress.n = progress.total
-        progress.refresh()
-        progress.close()
+    # Finish the progress bar
+    progress.n = progress.total
+    progress.refresh()
+    progress.close()
 
 
 def main():
