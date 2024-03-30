@@ -3,7 +3,7 @@ name: Generate Executable
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
   build:

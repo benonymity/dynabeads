@@ -182,7 +182,11 @@ def process_video(video_file, args):
 
 
 def process_folder(args, progress, button=None):
-    video_files = [os.path.join(args.input, f) for f in os.listdir(args.input) if f.endswith('.avi')]
+    video_files = [
+        os.path.join(args.input, f)
+        for f in os.listdir(args.input)
+        if f.endswith(".avi")
+    ]
     # if not progress:
     #     from tqdm import tqdm
     #     progress = tqdm(
@@ -197,9 +201,7 @@ def process_folder(args, progress, button=None):
     with ProcessPoolExecutor() as executor:
         # Map futures to video file names
         future_to_video = {
-            executor.submit(
-                process_video, video_file, args
-            ): video_file
+            executor.submit(process_video, video_file, args): video_file
             for video_file in video_files
         }
 

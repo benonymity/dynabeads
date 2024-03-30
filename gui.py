@@ -1,11 +1,12 @@
 import os
 import process
 import argparse
-import tkinter as tk
-from tqdm.tk import tqdm
-from tqdm import TqdmExperimentalWarning
 import warnings
+import tkinter as tk
+import multiprocessing
+from tqdm.tk import tqdm
 from tkinter import filedialog, ttk
+from tqdm import TqdmExperimentalWarning
 
 
 def select_folder(folder_path_var):
@@ -26,7 +27,7 @@ def run(input, output, absolute, plot, text, debug, button, progress):
     args = argparse.Namespace(**args)
     button["state"] = "disabled"
     process.process_folder(args, progress, button)
-    button['state'] = 'normal'
+    button["state"] = "normal"
 
 
 def create_gui():
@@ -58,7 +59,9 @@ def create_gui():
     ).grid(row=0, column=2)
 
     # Output folder selection
-    ttk.Label(frame, text="Select Output Folder:").grid(row=1, column=0, sticky=tk.W, pady=10)
+    ttk.Label(frame, text="Select Output Folder:").grid(
+        row=1, column=0, sticky=tk.W, pady=10
+    )
     ttk.Entry(frame, textvariable=output_path_var, width=50).grid(row=1, column=1)
     ttk.Button(
         frame, text="Browse", command=lambda: select_folder(output_path_var)
@@ -100,7 +103,14 @@ def create_gui():
         frame,
         text="Start Processing",
         command=lambda: run(
-            input_path_var, output_path_var, absolute_var, plot_var, text_var, video_var, processing_button, progress
+            input_path_var,
+            output_path_var,
+            absolute_var,
+            plot_var,
+            text_var,
+            video_var,
+            processing_button,
+            progress,
         ),
     )
     processing_button.grid(row=6, column=0, columnspan=3, pady=10)
@@ -111,16 +121,16 @@ def create_gui():
     root.update_idletasks()
     w = root.winfo_screenwidth()
     h = root.winfo_screenheight()
-    size = tuple(int(_) for _ in root.geometry().split('+')[0].split('x'))
+    size = tuple(int(_) for _ in root.geometry().split("+")[0].split("x"))
     x = (w / 2) - (size[0] / 2)
     y = (h / 2) - (size[1] / 2)
     root.geometry("%dx%d+%d+%d" % (size + (x, y)))
 
     root.deiconify()
 
-    root.mainloop() 
+    root.mainloop()
+
 
 if __name__ == "__main__":
-    import multiprocessing
     multiprocessing.freeze_support()
     create_gui()
