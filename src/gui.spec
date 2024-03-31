@@ -21,7 +21,7 @@ if os.name == "nt":
         'splash.png',
         binaries=a.binaries,
         datas=a.datas,
-        text_pos=(10, 10),
+        text_pos=(10, 50),
         text_size=12,
         minify_script=True,
         always_on_top=True,
@@ -75,10 +75,11 @@ else:
 
     os.system("chmod +x dist/Bead\ Tracker")
 
+    app = BUNDLE(
+        exe,
+        name='Bead Tracker.app',
+        icon='icon.icns',
+        bundle_identifier=None,
+    )
 
-app = BUNDLE(
-    exe,
-    name='Bead Tracker.app',
-    icon='icon.icns',
-    bundle_identifier=None,
-)
+    os.system("chmod +x dist/Bead\ Tracker.app/Contents/MacOS/Bead\ Tracker")

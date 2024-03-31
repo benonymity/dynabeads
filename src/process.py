@@ -178,17 +178,16 @@ def process_video(video_file, args):
     return video_path, centers, center_of_rotation
 
 
-def process_folder(args, progress, button=None):
+def process_folder(args, progress=None):
     video_files = [
         os.path.join(args.input, f)
         for f in os.listdir(args.input)
-        if f.endswith(".avi")
+        if f.endswith(".avi") or f.endswith(".mp4")
     ]
-    if not progress:
+    if progress is None:
         from tqdm import tqdm
-        progress = tqdm(
-            total=len(video_files), desc="Overall Progress", unit="video"
-        )
+
+        progress = tqdm(total=len(video_files), desc="Overall Progress", unit="video")
     progress.reset(total=len(video_files))
     try:
         progress._tk_window.deiconify()
