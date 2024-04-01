@@ -1,17 +1,23 @@
 import os
+import sys
 import cv2
 import argparse
 import numpy as np
 import pandas as pd
+import tkinter as tk
 import matplotlib.pyplot as plt
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 
 # Function to the detect the center of the dot
-def detect_center(frame):
+def detect_center(frame, args):
+    if not args.threshold:
+        threshold = 175
+    else:
+        threshold = args.threshold
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (9, 9), 2, 2)
-    _, thresh = cv2.threshold(blur, 200, 255, cv2.THRESH_BINARY)
+    _, thresh = cv2.threshold(blur, threshold, 255, cv2.THRESH_BINARY)
     contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     center = None
     if contours:
@@ -57,7 +63,7 @@ def process(video_path, args):
         if not read:
             break
         try:
-            center = detect_center(frame)
+            center = detect_center(frame, args)
             if center is not None:
                 centers.append(center)
                 if args.video:
@@ -77,8 +83,10 @@ def process(video_path, args):
             elif args.video:
                 out.write(frame)
         except Exception as e:
-            print("error!")
-            cv2.imwrite(f"error_frame_{frame_index}.png", frame)
+            try:
+                tk.messagebox.showerror("Error", e)
+            except:
+                print("Error: ", e)
 
     video.release()
     if args.video:
@@ -254,6 +262,9 @@ if __name__ == "__main__":
     # optional output string
     parser.add_argument(
         "output", type=str, help="Path to the output folder.", nargs="?"
+    )
+    parser.add_argument(
+        "threshold", type=int, help="Detection threshold (0-255).", nargs="?"
     )
     args = parser.parse_args()
 

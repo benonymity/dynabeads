@@ -114,9 +114,9 @@ def export_selected_beads(input, output, video_path, selections):
 
 
 class VideoFrameExplorer:
-    def __init__(self, root, input, output, progress=None):
+    def __init__(self, child, input, output, progress=None):
         video_paths = get_sorted_video_files(input)
-        self.root = root
+        self.root = child
         self.progress = progress
         self.video_paths = video_paths
         self.input = input
@@ -124,11 +124,11 @@ class VideoFrameExplorer:
         self.current_index = 0
         self.detected_centers = []
 
-        self.canvas = tk.Canvas(root, width=960, height=540)
+        self.canvas = tk.Canvas(self.root, width=960, height=540)
         self.canvas.pack()
 
         # Frame for export buttons, placed correctly below the navigation frame
-        self.export_button_frame = ttk.Frame(root)
+        self.export_button_frame = ttk.Frame(self.root)
         self.export_button_frame.pack(side=tk.BOTTOM, pady=(5, 10))
 
         self.export_all_button = ttk.Button(
@@ -142,7 +142,7 @@ class VideoFrameExplorer:
         )
         self.export_single_button.pack(side=tk.LEFT)
 
-        self.nav_button_frame = ttk.Frame(root)
+        self.nav_button_frame = ttk.Frame(self.root)
         self.nav_button_frame.pack(side=tk.BOTTOM, pady=(5, 0))
 
         # Navigation buttons
@@ -174,18 +174,9 @@ class VideoFrameExplorer:
         self.show_frame(self.current_index)
         self.update_button_states()
 
-        root.resizable(False, False)
+        self.root.resizable(False, False)
 
-        # Center the window
-        root.update_idletasks()
-        w = root.winfo_screenwidth()
-        h = root.winfo_screenheight()
-        size = tuple(int(_) for _ in root.geometry().split("+")[0].split("x"))
-        x = (w / 2) - (size[0] / 2)
-        y = (h / 2) - (size[1] / 2)
-        root.geometry("%dx%d+%d+%d" % (size + (x, y)))
-
-        root.deiconify()
+        self.root.deiconify()
 
     def update_button_states(self):
         # Disable "First" and "Prev" buttons if on the first video

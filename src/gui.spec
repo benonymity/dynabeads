@@ -1,13 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 import os
+import sys
 
 a = Analysis(
     ['gui.py'],
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=[],
+    hiddenimports=["matplotlib.backends"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -16,7 +17,7 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
-if os.name == "nt":
+if sys.platform == "win32":
     splash = Splash(
         'splash.png',
         binaries=a.binaries,
@@ -50,7 +51,7 @@ if os.name == "nt":
         entitlements_file=None,
         icon=['icon.icns'],
     )
-else:
+elif sys.platform == "linux" or sys.platform == "linux2":
     exe = EXE(
         pyz,
         a.scripts,
@@ -74,12 +75,36 @@ else:
     )
 
     os.system("chmod +x dist/Bead\ Tracker")
+elif sys.platform == "darwin":
+    exe = EXE(
+        pyz,
+        a.scripts,
+        a.binaries,
+        a.datas,
+        [],
+        name='gui',
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=False,
+        upx=True,
+        upx_exclude=[],
+        runtime_tmpdir=None,
+        console=False,
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+        icon=['icon.icns'],
+    )
 
+    os.system("chmod +x dist/gui")
     app = BUNDLE(
         exe,
-        name='Bead Tracker.app',
+        name='Dynabeads.app',
         icon='icon.icns',
         bundle_identifier=None,
     )
 
-    os.system("chmod +x dist/Bead\ Tracker.app/Contents/MacOS/Bead\ Tracker")
+    os.system("chmod +x dist/Dynabeads.app/Contents/MacOS/gui")
+    os.remove("dist/gui")
