@@ -8,7 +8,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=["matplotlib.backends"],
+    # hiddenimports=["matplotlib.backends", "scipy.special._cdflib"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -36,7 +36,7 @@ if sys.platform == "win32":
         splash,
         splash.binaries,
         [],
-        name='Bead Tracker.exe',
+        name='Dynabeads.exe',
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,
@@ -51,6 +51,7 @@ if sys.platform == "win32":
         entitlements_file=None,
         icon=['icon.icns'],
     )
+
 elif sys.platform == "linux" or sys.platform == "linux2":
     exe = EXE(
         pyz,
@@ -58,7 +59,7 @@ elif sys.platform == "linux" or sys.platform == "linux2":
         a.binaries,
         a.datas,
         [],
-        name='Bead Tracker',
+        name='Dynabeads',
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,
@@ -74,7 +75,8 @@ elif sys.platform == "linux" or sys.platform == "linux2":
         icon=['icon.icns'],
     )
 
-    os.system("chmod +x dist/Bead\ Tracker")
+    os.system("chmod +x dist/Dynabeads")
+
 elif sys.platform == "darwin":
     exe = EXE(
         pyz,
@@ -82,7 +84,7 @@ elif sys.platform == "darwin":
         a.binaries,
         a.datas,
         [],
-        name='gui',
+        name='dynabeads',
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,
@@ -98,7 +100,7 @@ elif sys.platform == "darwin":
         icon=['icon.icns'],
     )
 
-    os.system("chmod +x dist/gui")
+    os.system("chmod +x dist/dynabeads")
     app = BUNDLE(
         exe,
         name='Dynabeads.app',
@@ -106,5 +108,5 @@ elif sys.platform == "darwin":
         bundle_identifier=None,
     )
 
-    os.system("chmod +x dist/Dynabeads.app/Contents/MacOS/gui")
-    os.remove("dist/gui")
+    os.system("chmod +x dist/Dynabeads.app/Contents/MacOS/dynabeads")
+    os.remove("dist/dynabeads")

@@ -176,6 +176,11 @@ class VideoFrameExplorer:
 
         self.root.resizable(False, False)
 
+        try:
+            self.root.eval(f"tk::PlaceWindow . center")
+        except:
+            pass
+
         self.root.deiconify()
 
     def update_button_states(self):
@@ -236,6 +241,10 @@ class VideoFrameExplorer:
         x2, y2 = x + half_side_length_scaled, y + half_side_length_scaled
         outline_color = "light green" if clicked else "red"
         self.canvas.create_rectangle(x1, y1, x2, y2, outline=outline_color, tags="rect")
+        # Create text label with x and y coordinates
+        self.canvas.create_text(
+            (x1-(x2-x1)/1.5), y1-15, text=f"({int(x)}, {int(y)})", anchor=tk.NW, tags="rect"
+        )
 
     def on_canvas_click(self, event):
         x, y = event.x, event.y
