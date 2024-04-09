@@ -4,5 +4,5 @@ opencv_python==4.9.0.80
 pandas==2.2.1
 Pillow==10.3.0
 Requests==2.31.0
-# scipy==1.13.0
+scipy==1.11.4
 tqdm==4.66.2

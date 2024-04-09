@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 import tkinter as tk
 import matplotlib.pyplot as plt
-# from scipy.stats import linregress
-# from scipy.optimize import minimize
+from scipy.stats import linregress
+from scipy.optimize import minimize
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 
@@ -110,20 +110,20 @@ def process(video_path, args):
     return video_path, centers, (frame_width, frame_height)
 
 
-# def fit_circle(x_coords, y_coords):
-#     x_mean = np.mean(x_coords)
-#     y_mean = np.mean(y_coords)
-#     initial_guess = [x_mean, y_mean]
+def fit_circle(x_coords, y_coords):
+    x_mean = np.mean(x_coords)
+    y_mean = np.mean(y_coords)
+    initial_guess = [x_mean, y_mean]
 
-#     def objective_function(center, x, y):
-#         return np.std(np.sqrt((x - center[0]) ** 2 + (y - center[1]) ** 2))
+    def objective_function(center, x, y):
+        return np.std(np.sqrt((x - center[0]) ** 2 + (y - center[1]) ** 2))
 
-#     result = minimize(objective_function, initial_guess, args=(x_coords, y_coords))
-#     center_x, center_y = result.x
-#     distances = np.sqrt((x_coords - center_x) ** 2 + (y_coords - center_y) ** 2)
-#     radius = np.mean(distances)
-#     fit_error = np.std(distances)
-#     return (center_x, center_y, radius, fit_error)
+    result = minimize(objective_function, initial_guess, args=(x_coords, y_coords))
+    center_x, center_y = result.x
+    distances = np.sqrt((x_coords - center_x) ** 2 + (y_coords - center_y) ** 2)
+    radius = np.mean(distances)
+    fit_error = np.std(distances)
+    return (center_x, center_y, radius, fit_error)
 
 
 def plot(num, video_name, centers, args, video_dims=(100, 100)):
@@ -131,7 +131,7 @@ def plot(num, video_name, centers, args, video_dims=(100, 100)):
     x_coords = [pt[0] for pt in centers]
     y_coords = [pt[1] for pt in centers]
 
-    # center_x, center_y, radius, fit_error = fit_circle(x_coords, y_coords)
+    center_x, center_y, radius, fit_error = fit_circle(x_coords, y_coords)
 
     fig, ax = plt.subplots()
     center_x, center_y = calculate_center(centers)
@@ -148,10 +148,10 @@ def plot(num, video_name, centers, args, video_dims=(100, 100)):
     except:
         prefix = ""
 
-    # try:
-    #     slope, intercept, r_value, p_value, std_err = linregress(x_coords, y_coords)
-    # except:
-    #     r_value = 0
+    try:
+        slope, intercept, r_value, p_value, std_err = linregress(x_coords, y_coords)
+    except:
+        r_value = 0
 
     if np.std(x_coords) < 0.5 and np.std(y_coords) < 0.5:
         ax.set_title(
@@ -159,29 +159,28 @@ def plot(num, video_name, centers, args, video_dims=(100, 100)):
             fontsize=8,
             color="red",
         )
-    # elif r_value**2 > 0.6:
-    #     ax.set_title(
-    #         f"{prefix}LINEAR",
-    #         fontsize=8,
-    #         color="red",
-    #     )
+    elif r_value**2 > 0.6:
+        ax.set_title(
+            f"{prefix}LINEAR",
+            fontsize=8,
+            color="red",
+        )
     else:
         ax.set_title(
-            # f"{prefix}CIRCULAR (fit error: {fit_error:.2f})",
-            f"{prefix}CIRCULAR",
+            f"{prefix}CIRCULAR (fit error: {fit_error:.2f})",
             fontsize=8,
             color="black",
         )
-        # circle = plt.Circle(
-        #     (center_x, center_y),
-        #     radius,
-        #     color="red",
-        #     fill=False,
-        #     linestyle="--",
-        #     linewidth=1,
-        #     zorder=10,
-        # )
-        # ax.add_artist(circle)
+        circle = plt.Circle(
+            (center_x, center_y),
+            radius,
+            color="red",
+            fill=False,
+            linestyle="--",
+            linewidth=1,
+            zorder=10,
+        )
+        ax.add_artist(circle)
         if args.absolute:
             ax.scatter(
                 center_x,
@@ -212,7 +211,6 @@ def plot(num, video_name, centers, args, video_dims=(100, 100)):
     ax.plot(x_coords, y_coords, c="blue", label="Bead Path", linewidth=0.5)
 
     plt.tight_layout()
-    print(video_name)
     plt.savefig(f"{args.output}/{video_name}_plot.png")
 
 
