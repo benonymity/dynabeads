@@ -22,7 +22,7 @@ if sys.platform == "win32":
         'splash.png',
         binaries=a.binaries,
         datas=a.datas,
-        text_pos=(10, 50),
+        text_pos=(10, 30),
         text_size=12,
         minify_script=True,
         always_on_top=True,

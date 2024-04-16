@@ -245,7 +245,7 @@ class VideoFrameExplorer:
     def add_custom_rectangle(self):
         try:
             if self.new_x.get() is not None and int(self.new_x.get()) > 0 and self.new_y.get() is not None and int(self.new_y.get()) > 0:
-                self.detected_centers.append(((int(self.new_x.get()), int(self.new_y.get())), True))
+                self.detected_centers.append(((int(self.new_x.get()) * self.get_scale(), int(self.new_y.get()) * self.get_scale()), True))
                 self.redraw_rectangles()
         except:
             pass
@@ -274,14 +274,7 @@ class VideoFrameExplorer:
             self.update_canvas(frame)
 
     def draw_rectangle(self, center, clicked):
-        # Get original frame size
-        orig_width, orig_height = get_frame_size(self.video_paths[self.current_index])
-        disp_width, disp_height = 960, 540
-
-        # Calculate scaling factors for width and height
-        scale_w = disp_width / orig_width if orig_width else 1
-        scale_h = disp_height / orig_height if orig_height else 1
-        scale = min(scale_w, scale_h)
+        scale = self.get_scale()
 
         # Scale the rectangle size (100x100) according to the scaling factor
         half_side_length_scaled = 50 * scale
@@ -294,8 +287,17 @@ class VideoFrameExplorer:
         self.canvas.create_rectangle(x1, y1, x2, y2, outline=outline_color, tags="rect")
         # Create text label with x and y coordinates
         self.canvas.create_text(
-            (x1-(x2-x1)/1.5), y1-15, text=f"({int(x)}, {int(y)})", anchor=tk.NW, tags="rect"
+            (x1-(x2-x1)/1.5), y1-15, text=f"({int(x / scale)}, {int(y / scale)})", anchor=tk.NW, tags="rect"
         )
+
+    def get_scale(self):
+        orig_width, orig_height = get_frame_size(self.video_paths[self.current_index])
+        disp_width, disp_height = 960, 540
+
+        # Calculate scaling factors for width and height
+        scale_w = disp_width / orig_width if orig_width else 1
+        scale_h = disp_height / orig_height if orig_height else 1
+        return min(scale_w, scale_h)
 
     def on_canvas_click(self, event):
         x, y = event.x, event.y
