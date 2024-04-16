@@ -5,7 +5,7 @@ import argparse
 import numpy as np
 import tkinter as tk
 from PIL import Image, ImageTk
-from tkinter import filedialog, ttk
+from tkinter import filedialog, simpledialog, ttk
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 
@@ -132,15 +132,53 @@ class VideoFrameExplorer:
         self.export_button_frame.pack(side=tk.BOTTOM, pady=(5, 10))
 
         self.export_all_button = ttk.Button(
-            self.export_button_frame, text="Export All", command=self.export
+            self.export_button_frame, text=f"Export up to Video {self.current_index+1}", command=self.export
         )
         self.export_all_button.pack(side=tk.LEFT)
         self.export_single_button = ttk.Button(
             self.export_button_frame,
-            text=f"Export up to Video {self.current_index+1}",
-            command=self.export,
+            text=f"Export Video {self.current_index+1}",
+            command=self.export_one,
         )
         self.export_single_button.pack(side=tk.LEFT)
+
+        self.edit2_button_frame = ttk.Frame(self.root)
+        self.edit2_button_frame.pack(side=tk.BOTTOM, pady=(5, 0))
+
+        # Remove all rectangles button
+        self.remove_rects_button = ttk.Button(
+            self.edit2_button_frame, text="Remove All Rectangles", command=self.remove_all_rectangles
+        )
+        self.remove_rects_button.pack(side=tk.LEFT)
+
+        # Recreate rectangles button
+        self.recreate_rects_button = ttk.Button(
+            self.edit2_button_frame, text="Recreate Rectangles", command=self.recreate_rectangles
+        )
+        self.recreate_rects_button.pack(side=tk.LEFT)
+
+        self.edit_button_frame = ttk.Frame(self.root)
+        self.edit_button_frame.pack(side=tk.BOTTOM, pady=(5, 0))
+
+        self.new_x = ttk.Entry(self.edit_button_frame, width=5)
+        self.new_x.pack(side=tk.LEFT, padx=(2, 0))
+        self.new_x.insert(0, "x")
+
+        # Entry for Y coordinate
+        self.new_y = ttk.Entry(self.edit_button_frame, width=5)
+        self.new_y.pack(side=tk.LEFT, padx=(2, 0))
+        self.new_y.insert(0, "y")
+
+        self.custom_rect_button = ttk.Button(
+            self.edit_button_frame, text="Add Custom Rectangle", command=self.add_custom_rectangle
+        )
+        self.custom_rect_button.pack(side=tk.LEFT, padx=(0, 20))
+
+
+        self.canvas.bind("<Button-1>", self.on_canvas_click)
+        self.canvas.bind("<Button-2>", self.on_canvas_right_click)
+        # Different systems have different default bindings, so checking both here
+        self.canvas.bind("<Button-3>", self.on_canvas_right_click)
 
         self.nav_button_frame = ttk.Frame(self.root)
         self.nav_button_frame.pack(side=tk.BOTTOM, pady=(5, 0))
@@ -166,15 +204,13 @@ class VideoFrameExplorer:
         )
         self.last_button.pack(side=tk.LEFT)
 
-        self.canvas.bind("<Button-1>", self.on_canvas_click)
-        self.canvas.bind("<Button-2>", self.on_canvas_right_click)
-        # Different systems have different default bindings, so checking both here
-        self.canvas.bind("<Button-3>", self.on_canvas_right_click)
-
+        frame = get_first_frame(self.video_paths[self.current_index])
+        self.detect_and_draw_centers(frame)
         self.show_frame(self.current_index)
         self.update_button_states()
 
         self.root.resizable(False, False)
+
 
         try:
             self.root.eval(f"tk::PlaceWindow . center")
@@ -200,27 +236,42 @@ class VideoFrameExplorer:
             self.next_button["state"] = "normal"
             self.last_button["state"] = "normal"
 
-        if self.current_index == len(self.video_paths) - 1:
-            self.export_single_button.pack_forget()
-            self.export_all_button.pack(side=tk.LEFT)
-        else:
-            self.export_single_button.pack(side=tk.LEFT)
-            self.export_all_button.pack_forget()
-
     def update_canvas(self, img):
         self.canvas.delete("all")
         self.photo = ImageTk.PhotoImage(image=Image.fromarray(img))
         self.canvas.create_image(0, 0, anchor=tk.NW, image=self.photo)
         self.redraw_rectangles()
 
+    def add_custom_rectangle(self):
+        try:
+            if self.new_x.get() is not None and int(self.new_x.get()) > 0 and self.new_y.get() is not None and int(self.new_y.get()) > 0:
+                self.detected_centers.append(((int(self.new_x.get()), int(self.new_y.get())), True))
+                self.redraw_rectangles()
+        except:
+            pass
+
     def detect_and_draw_centers(self, frame):
-        if self.current_index == 0 and not self.detected_centers:
-            centers = detect_beads(cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR))
-            self.detected_centers = [(center, False) for center in centers]
+        # if self.current_index == 0 and not self.detected_centers:
+        centers = detect_beads(cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR))
+        self.detected_centers = self.detected_centers + [(center, False) for center in centers]
 
     def redraw_rectangles(self):
         for center, clicked in self.detected_centers:
             self.draw_rectangle(center, clicked)
+
+    def remove_all_rectangles(self):
+        self.detected_centers.clear()
+        frame = get_first_frame(self.video_paths[self.current_index])
+        if frame is not None:
+            self.update_canvas(frame)
+        self.redraw_rectangles()
+
+    def recreate_rectangles(self):
+        frame = get_first_frame(self.video_paths[self.current_index])
+        if frame is not None:
+            self.detect_and_draw_centers(frame)
+            # self.update_canvas(frame)
+            self.update_canvas(frame)
 
     def draw_rectangle(self, center, clicked):
         # Get original frame size
@@ -294,8 +345,10 @@ class VideoFrameExplorer:
         frame = get_first_frame(self.video_paths[index])
         if frame is not None:
             self.update_canvas(frame)
-            self.detect_and_draw_centers(frame)
             self.export_single_button.config(
+                text=f"Export Video {self.current_index+1}"
+            )
+            self.export_all_button.config(
                 text=f"Export up to Video {self.current_index+1}"
             )
             self.redraw_rectangles()
@@ -350,6 +403,24 @@ class VideoFrameExplorer:
         else:
             print("No centers selected for this video.")
 
+    def export_one(self):
+        orig_width, orig_height = get_frame_size(self.video_paths[self.current_index])
+        disp_width = 960
+        scale = disp_width / orig_width if orig_width else 1
+        selected_centers = [
+            (int(center[0] / scale), int(center[1] / scale))
+            for center, clicked in self.detected_centers
+            if clicked
+        ]
+
+        if selected_centers:
+            export_selected_beads(self.input,
+            self.output,
+            self.video_paths[self.current_index],
+            selected_centers)
+        else:
+            print("No centers selected for this video.")
+
     def show_first_frame(self):
         self.current_index = 0
         self.show_frame(self.current_index)
@@ -377,11 +448,13 @@ if __name__ == "__main__":
         description="Crop videos down to individual beads for tracking."
     )
     # Integration with the file dialog to choose the folder
-    input = filedialog.askdirectory(initialdir=".", title="Select Input Folder")
+    input = "raw"
+    output = "exported_beads"
+    # input = filedialog.askdirectory(initialdir=".", title="Select Input Folder")
     if not input:
         tk.messagebox.showerror("Error", "You must select an input folder")
         sys.exit(0)
-    output = filedialog.askdirectory(initialdir=".", title="Select Output Folder")
+    # output = filedialog.askdirectory(initialdir=".", title="Select Output Folder")
     if not output:
         tk.messagebox.showerror("Error", "You must select an output folder")
         sys.exit(0)
