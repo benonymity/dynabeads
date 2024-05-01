@@ -1,5 +1,6 @@
 # To-Do List
 
+- [ ] Bulk processing
 - [ ] Add tracking explorer
 - [ ] MATLAB processing to Python
 - [ ] Use ring instead of point for tracking
