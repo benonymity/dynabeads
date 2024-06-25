@@ -20,15 +20,20 @@ def process_folder(input, output):
 def get_folders(input):
     process_folders = []
     for folder in os.listdir(input):
-        for subfolder in os.listdir(os.path.join(input, folder)):
-            for subsubfolder in os.listdir(os.path.join(input, folder, subfolder)):
-                if "S and R" in subsubfolder:
-                    for subsubsubfolder in os.listdir(os.path.join(input, folder, subfolder, subsubfolder)):
-                        for subsubsubsubfolder in os.listdir(os.path.join(input, folder, subfolder, subsubsubfolder)):
-                            if ("Rotation" in subfolder and ".avi" in os.listdir(os.path.join(input, folder, subfolder, subsubsubfolder, subsubsubsubfolder))[3]):
-                                process_folders.append(
-                                    os.path.join(input, folder, subfolder, subsubsubfolder, subsubsubsubfolder)
-                                )
+        if os.path.isdir(os.path.join(input, folder)):
+            for subfolder in os.listdir(os.path.join(input, folder)):
+                if os.path.isdir(os.path.join(input, folder, subfolder)):
+                    for subsubfolder in os.listdir(os.path.join(input, folder, subfolder)):
+                        if os.path.isdir(os.path.join(input, folder, subfolder, subsubfolder)):
+                            if "S and R" in subsubfolder:
+                                for subsubsubfolder in os.listdir(os.path.join(input, folder, subfolder, subsubfolder)):
+                                    if os.path.isdir(os.path.join(input, folder, subfolder, subsubfolder, subsubsubfolder)):
+                                        for subsubsubsubfolder in os.listdir(os.path.join(input, folder, subfolder, subsubfolder, subsubsubfolder, subsubsubsubfolder)):
+                                            if os.path.isdir(os.path.join(input, folder, subfolder, subsubfolder, subsubsubfolder, subsubsubsubfolder)):
+                                                if ("Rotation" in subsubsubsubfolder):
+                                                    process_folders.append(
+                                                        os.path.join(folder, subfolder, subsubfolder, subsubsubfolder, subsubsubsubfolder)
+                                                    )
     return process_folders
 
 
@@ -36,12 +41,12 @@ def process_folders(input, dry_run):
     for folder in get_folders(input):
         input = folder
         name = os.path.basename(folder)
-        output = os.path.join(os.path.split(os.path.split(folder)[0])[0], "Bulk Rotation Output", name)
+        output = os.path.join(input, "Bulk Rotation Output", folder)
         if not dry_run:
             os.makedirs(output, exist_ok=True)
-            process_folder(input, output)
+            process_folder(os.path.join(input, folder), output)
         else:
-            print(f"Dry run: {input} -> {output}")
+            print(f"Dry run: {folder} -> {output}")
 
 
 if "__main__" == __name__:
@@ -49,16 +54,15 @@ if "__main__" == __name__:
         description="Bulk processing of Dynabead videos"
     )
     parser.add_argument(
-        "-i",
-        "--input",
-        type=str,
-        help="Path to input folder",
-    )
-    parser.add_argument(
         "-d",
         "--dry-run",
         action="store_true",
         help="Dry run",
+    )
+    parser.add_argument(
+        "input",
+        type=str,
+        help="Path to input folder",
     )
     args = parser.parse_args()
     process_folders(args.input, args.dry_run)
