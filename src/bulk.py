@@ -1,5 +1,5 @@
 import os
-import process
+import track
 import argparse
 
 
@@ -14,7 +14,7 @@ def process_folder(input, output):
         text=True,
     )
     args = argparse.Namespace(**args)
-    process.process_folder(args, None)
+    track.process_folder(args, None)
 
 
 def get_folders(input):

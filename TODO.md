@@ -2,9 +2,9 @@
 
 - [ ] Bulk processing
 - [ ] Add tracking explorer
-- [ ] MATLAB processing to Python
-- [ ] Use ring instead of point for tracking
 - [ ] Flag outlying data points
+- [ ] Convert MATLAB processing to Python
+- [ ] Use ring instead of point for tracking
 - [x] Update system
 - [x] Fix reversed plots and data
 - [x] Make individual video processing

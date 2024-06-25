@@ -2,7 +2,7 @@ import os
 import sys
 import cv2
 import crop
-import process
+import track
 import warnings
 import requests
 import argparse
@@ -38,6 +38,9 @@ def open_crop_tool(root, input_path_var, output_path_var, progress):
     video_files = crop.get_sorted_video_files(input_path_var.get())
     if video_files:
         child = tk.Toplevel(root)
+        icon = tk.PhotoImage(file="icon.png")
+        child.iconphoto(False, icon)
+
         child.title("Crop Tool")
         crop.VideoFrameExplorer(
             child, input_path_var.get(), output_path_var.get(), progress
@@ -59,7 +62,7 @@ def run(input, output, absolute, plot, text, video, threshold, button, progress)
     )
     args = argparse.Namespace(**args)
     button["state"] = "disabled"
-    process.process_folder(args, progress)
+    track.process_folder(args, progress)
     button["state"] = "normal"
 
 
@@ -75,6 +78,9 @@ def track_settings(
 ):
     top = tk.Toplevel(parent)
     top.title("Settings")
+    icon = tk.PhotoImage(file="icon.png")
+    top.iconphoto(False, icon)
+
     frame = ttk.Frame(top, padding=(20, 10, 20, 10))
     frame.pack(fill="both", expand=True)
     frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -326,6 +332,8 @@ def setup_crop_tab(root, tab, input_path_var, output_path_var, progress):
 def create_gui():
     root = tk.Tk()
     root.title("Dynabead Tools")
+    icon = tk.PhotoImage(file="icon.png")
+    root.iconphoto(False, icon)
 
     # Common variables
     track_input_path_var = tk.StringVar(value=os.path.join(os.getcwd(), "videos"))
