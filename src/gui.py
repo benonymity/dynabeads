@@ -50,7 +50,19 @@ def open_crop_tool(root, input_path_var, output_path_var, progress):
         tk.messagebox.showerror("Error", "No video files found in the selected folder.")
 
 
-def run(input, output, absolute, plot, text, video, threshold, button, progress):
+def run(
+    input,
+    output,
+    absolute,
+    plot,
+    text,
+    video,
+    threshold,
+    long_video,
+    segment_duration,
+    button,
+    progress,
+):
     args = dict(
         input=input.get(),
         output=output.get(),
@@ -59,6 +71,8 @@ def run(input, output, absolute, plot, text, video, threshold, button, progress)
         plot=plot.get(),
         absolute=absolute.get(),
         text=text.get(),
+        long_video=long_video.get(),
+        segment_duration=int(segment_duration.get()),
     )
     args = argparse.Namespace(**args)
     button["state"] = "disabled"
@@ -227,6 +241,8 @@ def setup_track_tab(
     absolute_var,
     video_var,
     threshold_var,
+    long_video_var,
+    segment_duration_var,
     progress,
 ):
     frame = ttk.Frame(tab, padding="10")
@@ -250,6 +266,24 @@ def setup_track_tab(
         frame, text="Browse", command=lambda: select_folder(track_output_path_var)
     ).grid(row=1, column=2, padx=(10, 0))
 
+    ttk.Checkbutton(
+        frame,
+        text="Long video mode (split by timer from movement start)",
+        variable=long_video_var,
+    ).grid(row=2, column=0, columnspan=3, sticky=tk.W, pady=(10, 0))
+
+    ttk.Label(frame, text="Segment duration (sec):").grid(
+        row=3, column=0, sticky=tk.W, pady=(5, 0)
+    )
+    ttk.Spinbox(
+        frame,
+        from_=10,
+        to=600,
+        increment=10,
+        textvariable=segment_duration_var,
+        width=8,
+    ).grid(row=3, column=1, sticky=tk.W, pady=(5, 0))
+
     settings_button = ttk.Button(
         frame,
         text="Settings",
@@ -264,7 +298,7 @@ def setup_track_tab(
             track_input_path_var,
         ),
     )
-    settings_button.grid(row=3, column=0, columnspan=3, padx=(0, 140), pady=10)
+    settings_button.grid(row=4, column=0, columnspan=3, padx=(0, 140), pady=10)
 
     # Processing button
     processing_button = ttk.Button(
@@ -278,20 +312,22 @@ def setup_track_tab(
             text_var,
             video_var,
             threshold_var,
+            long_video_var,
+            segment_duration_var,
             processing_button,
             progress,
         ),
     )
-    processing_button.grid(row=3, column=0, columnspan=3, padx=(110, 0), pady=10)
+    processing_button.grid(row=4, column=0, columnspan=3, padx=(110, 0), pady=10)
 
     help_button = ttk.Button(frame, text="Help", command=lambda: show_help("Track"))
-    help_button.grid(row=4, column=2, sticky=tk.E)
+    help_button.grid(row=5, column=2, sticky=tk.E)
 
     if new_version_check():
         update_button = ttk.Button(
             frame, text="Update Available", command=lambda: webbrowser.open("https://github.com/benonymity/Dynabeads/releases/latest")
         )
-        update_button.grid(row=4, column=0, sticky=tk.W)
+        update_button.grid(row=5, column=0, sticky=tk.W)
 
 
 def setup_crop_tab(root, tab, input_path_var, output_path_var, progress):
@@ -349,6 +385,8 @@ def create_gui():
     video_var = tk.BooleanVar()
 
     threshold_var = tk.IntVar(value=175)
+    long_video_var = tk.BooleanVar(value=False)
+    segment_duration_var = tk.IntVar(value=60)
 
     warnings.filterwarnings("ignore", category=TqdmExperimentalWarning)
     progress = tqdm(
@@ -377,6 +415,8 @@ def create_gui():
         absolute_var,
         video_var,
         threshold_var,
+        long_video_var,
+        segment_duration_var,
         progress,
     )
 
