@@ -2,6 +2,7 @@ import os
 import sys
 import cv2
 import math
+import json
 import argparse
 import numpy as np
 import pandas as pd
@@ -12,19 +13,84 @@ from scipy.optimize import minimize
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 
-# Long-video protocol: alternating precess / hold blocks (seconds each).
+# Long-video protocol: alternating precess / hold blocks.
 LONG_VIDEO_PRECESS_FREQS = [
-    1, 2, 3, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10,
+    1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10,
 ]
+DEFAULT_PRECESS_DURATION_SEC = 30
+DEFAULT_HOLD_DURATION_SEC = 10
 
 
-def long_video_segments(segment_duration_sec=60):
-    """Return list of (kind, frequency_hz, duration_sec) from movement onset."""
-    segments = []
+def default_long_video_protocol(
+    precess_duration_sec=DEFAULT_PRECESS_DURATION_SEC,
+    hold_duration_sec=DEFAULT_HOLD_DURATION_SEC,
+):
+    """Default alternating precess/hold protocol as editable step dicts."""
+    steps = []
     for freq in LONG_VIDEO_PRECESS_FREQS:
-        segments.append(("precess", freq, segment_duration_sec))
-        segments.append(("hold", None, segment_duration_sec))
+        steps.append(
+            {
+                "kind": "precess",
+                "freq_hz": freq,
+                "duration_sec": precess_duration_sec,
+            }
+        )
+        steps.append(
+            {"kind": "hold", "freq_hz": None, "duration_sec": hold_duration_sec}
+        )
+    return steps
+
+
+def long_video_segments():
+    """Return list of (kind, frequency_hz, duration_sec) from movement onset."""
+    return protocol_to_segments(default_long_video_protocol())
+
+
+def protocol_to_segments(protocol):
+    segments = []
+    for step in protocol:
+        kind = step["kind"]
+        if kind not in ("precess", "hold"):
+            raise ValueError(f"Unknown segment kind: {kind}")
+        duration_sec = float(step["duration_sec"])
+        if duration_sec <= 0:
+            raise ValueError("Segment duration must be positive")
+        freq_hz = step.get("freq_hz")
+        if kind == "precess":
+            if freq_hz is None:
+                raise ValueError("Precess segments require freq_hz")
+            segments.append(("precess", float(freq_hz), duration_sec))
+        else:
+            segments.append(("hold", None, duration_sec))
     return segments
+
+
+def load_protocol_file(path):
+    with open(path) as f:
+        protocol = json.load(f)
+    if not isinstance(protocol, list) or not protocol:
+        raise ValueError("Protocol file must contain a non-empty JSON list")
+    protocol_to_segments(protocol)
+    return protocol
+
+
+def save_protocol_file(path, protocol):
+    with open(path, "w") as f:
+        json.dump(protocol, f, indent=2)
+        f.write("\n")
+
+
+def resolve_long_video_segments(args):
+    if getattr(args, "long_video_protocol", None):
+        return protocol_to_segments(args.long_video_protocol)
+    if getattr(args, "protocol_file", None):
+        return protocol_to_segments(load_protocol_file(args.protocol_file))
+    segment_duration = getattr(args, "segment_duration", None)
+    if segment_duration is not None:
+        return protocol_to_segments(
+            default_long_video_protocol(segment_duration, segment_duration)
+        )
+    return long_video_segments()
 
 
 def segment_output_name(base_name, segment_index, kind, freq_hz):
@@ -365,8 +431,7 @@ def process_long_video(video_path, args, progress=None):
         args.output = os.path.join(os.getcwd(), "output")
     os.makedirs(args.output, exist_ok=True)
 
-    segment_duration = getattr(args, "segment_duration", 60)
-    segments = long_video_segments(segment_duration)
+    segments = resolve_long_video_segments(args)
 
     start_frame, start_time = detect_movement_start(video_path, args)
     print(
@@ -382,8 +447,12 @@ def process_long_video(video_path, args, progress=None):
     video.release()
 
     base_name = os.path.splitext(os.path.basename(video_path))[0]
-    segment_frames = int(round(segment_duration * fps))
     manifest_path = os.path.join(args.output, f"{base_name}_long_video_manifest.txt")
+    protocol_path = os.path.join(args.output, f"{base_name}_long_video_protocol.json")
+    if getattr(args, "long_video_protocol", None):
+        save_protocol_file(protocol_path, args.long_video_protocol)
+    elif getattr(args, "protocol_file", None):
+        protocol_path = args.protocol_file
 
     if progress is not None:
         try:
@@ -397,11 +466,15 @@ def process_long_video(video_path, args, progress=None):
         manifest.write(f"movement_start_frame={start_frame}\n")
         manifest.write(f"movement_start_sec={start_time:.3f}\n")
         manifest.write(f"fps={fps}\n")
-        manifest.write(f"segment_duration_sec={segment_duration}\n")
+        manifest.write(f"protocol_file={protocol_path}\n")
+        manifest.write(f"segment_count={len(segments)}\n")
 
+        elapsed_frames = 0
         for segment_index, (kind, freq_hz, duration_sec) in enumerate(segments):
-            seg_start = start_frame + segment_index * segment_frames
+            segment_frames = int(round(duration_sec * fps))
+            seg_start = start_frame + elapsed_frames
             seg_end = seg_start + segment_frames
+            elapsed_frames += segment_frames
             if seg_start >= total_frames:
                 manifest.write(
                     f"segment={segment_index:02d} status=skipped reason=beyond_video_end\n"
@@ -414,6 +487,7 @@ def process_long_video(video_path, args, progress=None):
             title_prefix = segment_title_prefix(kind, freq_hz)
             manifest.write(
                 f"segment={segment_index:02d} kind={kind} freq_hz={freq_hz} "
+                f"duration_sec={duration_sec} "
                 f"start_frame={seg_start} end_frame={min(seg_end, total_frames)} "
                 f"output={output_name}\n"
             )
@@ -569,8 +643,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--segment-duration",
         type=int,
-        default=60,
-        help="Duration of each long-video segment in seconds (default: 60).",
+        default=None,
+        help="Use the same duration (sec) for every precess and hold step.",
+    )
+    parser.add_argument(
+        "--protocol-file",
+        type=str,
+        default=None,
+        help="JSON file defining long-video precess/hold steps.",
     )
     args = parser.parse_args()
 

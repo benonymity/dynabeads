@@ -6,11 +6,12 @@ import track
 import warnings
 import requests
 import argparse
+import json
 import webbrowser
 import tkinter as tk
 import multiprocessing
 from tqdm.tk import tqdm
-from tkinter import filedialog, ttk
+from tkinter import filedialog, messagebox, ttk
 from matplotlib import pyplot as plt
 from tqdm import TqdmExperimentalWarning
 from matplotlib.widgets import Slider, Button
@@ -59,7 +60,7 @@ def run(
     video,
     threshold,
     long_video,
-    segment_duration,
+    long_video_protocol,
     button,
     progress,
 ):
@@ -72,7 +73,7 @@ def run(
         absolute=absolute.get(),
         text=text.get(),
         long_video=long_video.get(),
-        segment_duration=int(segment_duration.get()),
+        long_video_protocol=long_video_protocol,
     )
     args = argparse.Namespace(**args)
     button["state"] = "disabled"
@@ -215,6 +216,318 @@ def threshold_settings(root, threshold_var, threshold_text_var, input_folder_var
     threshold_var.set(round(s_thresh.val))
 
 
+def _format_protocol_summary(protocol):
+    total_sec = sum(step["duration_sec"] for step in protocol)
+    precess_count = sum(1 for step in protocol if step["kind"] == "precess")
+    hold_count = sum(1 for step in protocol if step["kind"] == "hold")
+    minutes = total_sec / 60
+    return (
+        f"{len(protocol)} steps ({precess_count} precess, {hold_count} hold) · "
+        f"{minutes:.1f} min total"
+    )
+
+
+def segment_settings(root, parent, long_video_var, protocol_steps):
+    top = tk.Toplevel(parent)
+    top.title("Long Video Segments")
+    icon = tk.PhotoImage(file="icon.png")
+    top.iconphoto(False, icon)
+    top.resizable(True, True)
+
+    working_steps = [dict(step) for step in protocol_steps]
+    row_widgets = []
+
+    outer = ttk.Frame(top, padding=(12, 10, 12, 10))
+    outer.pack(fill="both", expand=True)
+
+    ttk.Checkbutton(
+        outer,
+        text="Enable long video mode (split video into segments, starting the timer with inital movement)",
+        variable=long_video_var,
+    ).pack(anchor="w", pady=(0, 8))
+
+    summary_var = tk.StringVar()
+    ttk.Label(outer, textvariable=summary_var).pack(anchor="w", pady=(0, 8))
+
+    toolbar = ttk.Frame(outer)
+    toolbar.pack(fill="x", pady=(0, 8))
+
+    table_container = ttk.Frame(outer)
+    table_container.pack(fill="both", expand=True)
+
+    canvas = tk.Canvas(table_container, highlightthickness=0)
+    scrollbar = ttk.Scrollbar(table_container, orient="vertical", command=canvas.yview)
+    scroll_frame = ttk.Frame(canvas)
+    scroll_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all")),
+    )
+    canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+    header = ttk.Frame(scroll_frame)
+    header.pack(fill="x", pady=(0, 4))
+    ttk.Label(header, text="#", width=3).grid(row=0, column=0, padx=(0, 4))
+    ttk.Label(header, text="Type", width=10).grid(row=0, column=1, padx=4)
+    ttk.Label(header, text="Freq (Hz)", width=10).grid(row=0, column=2, padx=4)
+    ttk.Label(header, text="Duration (sec)", width=14).grid(row=0, column=3, padx=4)
+
+    rows_frame = ttk.Frame(scroll_frame)
+    rows_frame.pack(fill="both", expand=True)
+
+    def refresh_summary():
+        summary_var.set(_format_protocol_summary(working_steps))
+
+    def on_kind_changed(row):
+        kind = row["kind_var"].get()
+        if kind == "hold":
+            row["freq_entry"].configure(state="disabled")
+            row["freq_var"].set("")
+        else:
+            row["freq_entry"].configure(state="normal")
+            if not row["freq_var"].get().strip():
+                row["freq_var"].set("1")
+
+    def try_sync_from_widgets():
+        if not row_widgets:
+            return True
+        try:
+            working_steps[:] = collect_steps()
+            return True
+        except ValueError:
+            return False
+
+    def remove_row(index):
+        if not try_sync_from_widgets():
+            messagebox.showwarning(
+                "Protocol", "Fix invalid values before removing a step."
+            )
+            return
+        if len(working_steps) <= 1:
+            messagebox.showwarning("Protocol", "At least one step is required.")
+            return
+        working_steps.pop(index)
+        rebuild_rows()
+
+    def add_row(kind="precess", freq_hz=1.0, duration_sec=None):
+        if duration_sec is None:
+            duration_sec = (
+                track.DEFAULT_PRECESS_DURATION_SEC
+                if kind == "precess"
+                else track.DEFAULT_HOLD_DURATION_SEC
+            )
+        if not try_sync_from_widgets():
+            messagebox.showwarning(
+                "Protocol", "Fix invalid values before adding a step."
+            )
+            return
+        working_steps.append(
+            {"kind": kind, "freq_hz": freq_hz, "duration_sec": duration_sec}
+        )
+        rebuild_rows()
+
+    def rebuild_rows():
+        for row in row_widgets:
+            row["frame"].destroy()
+        row_widgets.clear()
+
+        for index, step in enumerate(working_steps):
+            row_frame = ttk.Frame(rows_frame)
+            row_frame.pack(fill="x", pady=2)
+
+            kind_var = tk.StringVar(value=step["kind"])
+            freq_var = tk.StringVar(
+                value="" if step["kind"] == "hold" else f"{step.get('freq_hz', 1):g}"
+            )
+            duration_var = tk.StringVar(value=str(step["duration_sec"]))
+
+            ttk.Label(row_frame, text=str(index + 1), width=3).grid(
+                row=0, column=0, padx=(0, 4)
+            )
+            kind_combo = ttk.Combobox(
+                row_frame,
+                textvariable=kind_var,
+                values=("precess", "hold"),
+                state="readonly",
+                width=10,
+            )
+            kind_combo.grid(row=0, column=1, padx=4)
+            freq_entry = ttk.Entry(row_frame, textvariable=freq_var, width=10)
+            freq_entry.grid(row=0, column=2, padx=4)
+            duration_entry = ttk.Entry(row_frame, textvariable=duration_var, width=14)
+            duration_entry.grid(row=0, column=3, padx=4)
+            ttk.Button(
+                row_frame,
+                text="Remove",
+                command=lambda i=index: remove_row(i),
+                width=8,
+            ).grid(row=0, column=4, padx=(8, 0))
+
+            row = {
+                "frame": row_frame,
+                "kind_var": kind_var,
+                "freq_var": freq_var,
+                "duration_var": duration_var,
+                "freq_entry": freq_entry,
+            }
+            kind_combo.bind(
+                "<<ComboboxSelected>>",
+                lambda _e, r=row: on_kind_changed(r),
+            )
+            on_kind_changed(row)
+            row_widgets.append(row)
+
+        refresh_summary()
+
+    def collect_steps():
+        collected = []
+        for index, row in enumerate(row_widgets):
+            kind = row["kind_var"].get().strip().lower()
+            if kind not in ("precess", "hold"):
+                raise ValueError(f"Step {index + 1}: type must be precess or hold")
+
+            duration_text = row["duration_var"].get().strip()
+            try:
+                duration_sec = float(duration_text)
+            except ValueError as exc:
+                raise ValueError(
+                    f"Step {index + 1}: duration must be a number"
+                ) from exc
+            if duration_sec <= 0:
+                raise ValueError(f"Step {index + 1}: duration must be positive")
+
+            freq_hz = None
+            if kind == "precess":
+                freq_text = row["freq_var"].get().strip()
+                if not freq_text:
+                    raise ValueError(f"Step {index + 1}: precess steps need a frequency")
+                try:
+                    freq_hz = float(freq_text)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"Step {index + 1}: frequency must be a number"
+                    ) from exc
+
+            collected.append(
+                {"kind": kind, "freq_hz": freq_hz, "duration_sec": duration_sec}
+            )
+        track.protocol_to_segments(collected)
+        return collected
+
+    def reset_default():
+        working_steps.clear()
+        working_steps.extend(track.default_long_video_protocol())
+        rebuild_rows()
+
+    def load_protocol():
+        path = filedialog.askopenfilename(
+            title="Load protocol",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+        try:
+            loaded = track.load_protocol_file(path)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            messagebox.showerror("Protocol", f"Could not load protocol:\n{exc}")
+            return
+        working_steps.clear()
+        working_steps.extend(loaded)
+        rebuild_rows()
+
+    def save_protocol():
+        try:
+            collected = collect_steps()
+        except ValueError as exc:
+            messagebox.showerror("Protocol", str(exc))
+            return
+        path = filedialog.asksaveasfilename(
+            title="Save protocol",
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+        try:
+            track.save_protocol_file(path, collected)
+        except OSError as exc:
+            messagebox.showerror("Protocol", f"Could not save protocol:\n{exc}")
+            return
+        messagebox.showinfo("Protocol", f"Saved protocol to:\n{path}")
+
+    def apply_duration_to_all():
+        if not try_sync_from_widgets():
+            messagebox.showwarning(
+                "Protocol", "Fix invalid values before changing durations."
+            )
+            return
+        dialog = tk.Toplevel(top)
+        dialog.title("Set All Durations")
+        dialog.transient(top)
+        dialog.grab_set()
+        ttk.Label(dialog, text="Duration for every step (sec):").pack(
+            padx=12, pady=(12, 4)
+        )
+        duration_var = tk.StringVar(value="60")
+        ttk.Entry(dialog, textvariable=duration_var, width=10).pack(padx=12, pady=4)
+
+        def apply():
+            try:
+                duration = float(duration_var.get())
+                if duration <= 0:
+                    raise ValueError
+            except ValueError:
+                messagebox.showerror("Protocol", "Enter a positive number.", parent=dialog)
+                return
+            for step in working_steps:
+                step["duration_sec"] = duration
+            dialog.destroy()
+            rebuild_rows()
+
+        btn_frame = ttk.Frame(dialog)
+        btn_frame.pack(pady=(8, 12))
+        ttk.Button(btn_frame, text="Apply", command=apply).pack(side="left", padx=4)
+        ttk.Button(btn_frame, text="Cancel", command=dialog.destroy).pack(side="left", padx=4)
+        root.eval(f"tk::PlaceWindow {str(dialog)} center")
+
+    def confirm():
+        try:
+            collected = collect_steps()
+        except ValueError as exc:
+            messagebox.showerror("Protocol", str(exc))
+            return
+        protocol_steps.clear()
+        protocol_steps.extend(collected)
+        top.destroy()
+
+    ttk.Button(toolbar, text="Add Step", command=lambda: add_row()).pack(side="left")
+    ttk.Button(toolbar, text="Set All Durations", command=apply_duration_to_all).pack(
+        side="left", padx=(8, 0)
+    )
+    ttk.Button(toolbar, text="Reset Default", command=reset_default).pack(
+        side="left", padx=(8, 0)
+    )
+    ttk.Button(toolbar, text="Load JSON", command=load_protocol).pack(
+        side="left", padx=(8, 0)
+    )
+    ttk.Button(toolbar, text="Save JSON", command=save_protocol).pack(
+        side="left", padx=(8, 0)
+    )
+
+    button_row = ttk.Frame(outer)
+    button_row.pack(fill="x", pady=(12, 0))
+    ttk.Button(button_row, text="Cancel", command=top.destroy).pack(side="right")
+    ttk.Button(button_row, text="OK", command=confirm).pack(side="right", padx=(0, 8))
+
+    rebuild_rows()
+    top.transient(parent)
+    top.grab_set()
+    root.eval(f"tk::PlaceWindow {str(top)} center")
+    parent.wait_window(top)
+
+
 def show_help(type):
     tk.messagebox.showinfo("Help", "No help to be had as of yet.")
 
@@ -242,7 +555,7 @@ def setup_track_tab(
     video_var,
     threshold_var,
     long_video_var,
-    segment_duration_var,
+    long_video_protocol,
     progress,
 ):
     frame = ttk.Frame(tab, padding="10")
@@ -266,26 +579,11 @@ def setup_track_tab(
         frame, text="Browse", command=lambda: select_folder(track_output_path_var)
     ).grid(row=1, column=2, padx=(10, 0))
 
-    ttk.Checkbutton(
-        frame,
-        text="Long video mode (split by timer from movement start)",
-        variable=long_video_var,
-    ).grid(row=2, column=0, columnspan=3, sticky=tk.W, pady=(10, 0))
-
-    ttk.Label(frame, text="Segment duration (sec):").grid(
-        row=3, column=0, sticky=tk.W, pady=(5, 0)
-    )
-    ttk.Spinbox(
-        frame,
-        from_=10,
-        to=600,
-        increment=10,
-        textvariable=segment_duration_var,
-        width=8,
-    ).grid(row=3, column=1, sticky=tk.W, pady=(5, 0))
+    actions = ttk.Frame(frame)
+    actions.grid(row=2, column=0, columnspan=3, pady=15)
 
     settings_button = ttk.Button(
-        frame,
+        actions,
         text="Settings",
         command=lambda: track_settings(
             root,
@@ -298,11 +596,16 @@ def setup_track_tab(
             track_input_path_var,
         ),
     )
-    settings_button.grid(row=4, column=0, columnspan=3, padx=(0, 140), pady=10)
+    settings_button.pack(side=tk.LEFT, padx=(0, 8))
 
-    # Processing button
+    ttk.Button(
+        actions,
+        text="Segments",
+        command=lambda: segment_settings(root, frame, long_video_var, long_video_protocol),
+    ).pack(side=tk.LEFT, padx=(0, 8))
+
     processing_button = ttk.Button(
-        frame,
+        actions,
         text="Start Processing",
         command=lambda: run(
             track_input_path_var,
@@ -313,21 +616,21 @@ def setup_track_tab(
             video_var,
             threshold_var,
             long_video_var,
-            segment_duration_var,
+            long_video_protocol,
             processing_button,
             progress,
         ),
     )
-    processing_button.grid(row=4, column=0, columnspan=3, padx=(110, 0), pady=10)
+    processing_button.pack(side=tk.LEFT)
 
     help_button = ttk.Button(frame, text="Help", command=lambda: show_help("Track"))
-    help_button.grid(row=5, column=2, sticky=tk.E)
+    help_button.grid(row=3, column=2, sticky=tk.E, pady=(10, 0))
 
     if new_version_check():
         update_button = ttk.Button(
             frame, text="Update Available", command=lambda: webbrowser.open("https://github.com/benonymity/Dynabeads/releases/latest")
         )
-        update_button.grid(row=5, column=0, sticky=tk.W)
+        update_button.grid(row=3, column=0, sticky=tk.W, pady=(10, 0))
 
 
 def setup_crop_tab(root, tab, input_path_var, output_path_var, progress):
@@ -386,7 +689,7 @@ def create_gui():
 
     threshold_var = tk.IntVar(value=175)
     long_video_var = tk.BooleanVar(value=False)
-    segment_duration_var = tk.IntVar(value=60)
+    long_video_protocol = track.default_long_video_protocol()
 
     warnings.filterwarnings("ignore", category=TqdmExperimentalWarning)
     progress = tqdm(
@@ -416,7 +719,7 @@ def create_gui():
         video_var,
         threshold_var,
         long_video_var,
-        segment_duration_var,
+        long_video_protocol,
         progress,
     )
 

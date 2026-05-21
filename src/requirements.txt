@@ -1,8 +1,8 @@
-matplotlib==3.8.3
-numpy==1.26.4
-opencv_python==4.9.0.80
-pandas==2.2.1
-Pillow==10.3.0
-Requests==2.31.0
-scipy==1.11.4
-tqdm==4.66.2
+matplotlib>=3.10
+numpy>=2.3
+opencv-python>=4.11
+pandas>=2.3
+Pillow>=12.2.0
+requests>=2.32
+scipy>=1.16
+tqdm>=4.67
