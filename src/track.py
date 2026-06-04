@@ -139,12 +139,18 @@ def detect_center(frame, args):
 def detect_movement_start(
     video_path,
     args,
-    sample_interval_sec=0.5,
+    sample_interval_sec=0.25,
+    stationary_threshold_px=3,
     displacement_threshold_px=5,
     sustained_samples=3,
 ):
     """
-    Find the frame index where bead motion begins by subsampling positions.
+    Find the frame where bead motion begins by subsampling positions.
+
+    Baseline is taken only from the initial stationary prefix: samples are added
+    while each new point stays near the median of prior stationary samples. Once
+    the bead leaves that envelope, search for sustained displacement from that
+    baseline (avoids using a fixed 5 s window that can include early motion).
     Returns (start_frame, start_time_sec).
     """
     video = cv2.VideoCapture(video_path)
@@ -174,12 +180,36 @@ def detect_movement_start(
     if len(positions) < sustained_samples + 1:
         return 0, 0.0
 
-    positions = np.array(positions)
-    baseline = np.median(positions[: min(10, len(positions))], axis=0)
+    positions = np.array(positions, dtype=float)
+
+    # Phase 1: grow baseline only while the bead stays in a stationary envelope.
+    stationary_positions = [positions[0]]
+    stationary_end_idx = 0
+    for idx in range(1, len(positions)):
+        baseline = np.median(stationary_positions, axis=0)
+        if np.linalg.norm(positions[idx] - baseline) <= stationary_threshold_px:
+            stationary_positions.append(positions[idx])
+            stationary_end_idx = idx
+        else:
+            break
+
+    baseline = np.median(stationary_positions, axis=0)
     displacement = np.linalg.norm(positions - baseline, axis=1)
 
+    # Phase 2: first sustained motion after the stationary prefix.
+    search_start = min(stationary_end_idx + 1, len(positions) - sustained_samples)
+    for idx in range(search_start, len(displacement) - sustained_samples + 1):
+        if np.all(
+            displacement[idx : idx + sustained_samples] > displacement_threshold_px
+        ):
+            start_frame = frame_indices[idx]
+            return start_frame, start_frame / fps
+
+    # Fallback: sustained motion anywhere (e.g. no clear stationary intro).
     for idx in range(len(displacement) - sustained_samples + 1):
-        if np.all(displacement[idx : idx + sustained_samples] > displacement_threshold_px):
+        if np.all(
+            displacement[idx : idx + sustained_samples] > displacement_threshold_px
+        ):
             start_frame = frame_indices[idx]
             return start_frame, start_frame / fps
 
